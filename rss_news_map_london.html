@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>London RSS News Map</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDkpW64fQC7HDQmly6Ka-4gNhnwU7f1AQo&callback=initMap" async defer></script>
+  <style>
+    #map { height: 90vh; width: 100%; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <header class="bg-white p-4 shadow text-center">
+    <h1 class="text-3xl font-bold text-blue-700">London News Map (RSS)</h1>
+    <p class="text-sm text-gray-600">News stories geolocated by borough mentions</p>
+  </header>
+
+  <div id="map"></div>
+
+  <script>
+    const rssFeeds = [
+      "https://corsproxy.io/?https://www.bbc.co.uk/london/rss/",
+      "https://corsproxy.io/?https://www.mylondon.news/news/?service=rss",
+      "https://corsproxy.io/?https://www.london.gov.uk/rss-feeds",
+      "https://corsproxy.io/?https://www.westendtheatre.com/category/news/",
+      "https://corsproxy.io/?https://www.football.london/?service=rss",
+      "https://corsproxy.io/?https://weather.metoffice.gov.uk/guides/rss",
+      "https://corsproxy.io/?https://bills.parliament.uk/rss/allbills.rss",
+      "https://corsproxy.io/?https://lse.einnews.com/subscribe_rss?feed_url=%2F&url=%2Fall_rss",
+      "https://corsproxy.io/?https://www.propertyweek.com/regions/london/feed",
+      "https://corsproxy.io/?https://help.ft.com/faq/email-alerts-and-contact-preferences/what-is-myft-rss-feed/",
+      "https://corsproxy.io/?https://feeds.skynews.com/feeds/rss/home.xml"
+    ];
+
+    const boroughs = {
+      "Camden": { lat: 51.545, lng: -0.162 },
+      "Greenwich": { lat: 51.48, lng: 0.005 },
+      "Hackney": { lat: 51.545, lng: -0.055 },
+      "Hammersmith": { lat: 51.492, lng: -0.233 },
+      "Islington": { lat: 51.538, lng: -0.102 },
+      "Kensington": { lat: 51.5, lng: -0.193 },
+      "Lambeth": { lat: 51.46, lng: -0.11 },
+      "Lewisham": { lat: 51.45, lng: -0.01 },
+      "Newham": { lat: 51.53, lng: 0.04 },
+      "Richmond": { lat: 51.44, lng: -0.31 },
+      "Southwark": { lat: 51.5, lng: -0.08 },
+      "Tower Hamlets": { lat: 51.52, lng: -0.03 },
+      "Wandsworth": { lat: 51.45, lng: -0.19 },
+      "Westminster": { lat: 51.497, lng: -0.135 }
+    };
+
+    let map;
+    let markers = [];
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 51.5074, lng: -0.1278 },
+        zoom: 11
+      });
+
+      loadFeeds();
+    }
+
+    async function loadFeeds() {
+      for (const url of rssFeeds) {
+        try {
+          const res = await fetch(url);
+          const text = await res.text();
+          const xml = new window.DOMParser().parseFromString(text, "text/xml");
+          const items = [...xml.querySelectorAll("item")];
+
+          items.forEach(item => {
+            const title = item.querySelector("title")?.textContent || "";
+            const description = item.querySelector("description")?.textContent || "";
+            const link = item.querySelector("link")?.textContent || "";
+
+            const boroughName = Object.keys(boroughs).find(name =>
+              title.includes(name) || description.includes(name)
+            );
+
+            if (boroughName) {
+              const coords = boroughs[boroughName];
+              const marker = new google.maps.Marker({
+                position: coords,
+                map,
+                title: title
+              });
+
+              const infoWindow = new google.maps.InfoWindow({
+                content: `
+                  <div class="max-w-xs p-2">
+                    <h3 class="text-lg font-bold text-blue-700 mb-1">${title}</h3>
+                    <p class="text-sm text-gray-700 mb-1">${boroughName}</p>
+                    <a href="${link}" target="_blank" class="text-blue-500 text-sm underline">Read more</a>
+                  </div>
+                `
+              });
+
+              marker.addListener("click", () => {
+                infoWindow.open(map, marker);
+              });
+
+              markers.push(marker);
+            }
+          });
+        } catch (error) {
+          console.error("Error loading RSS feed:", url, error);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
