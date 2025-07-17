@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediaMap</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #map { height: 50vh; width: 100%; }
+    .footer-quote { font-style: italic; }
+    .footer-meta { font-size: 0.75rem; color: #888; letter-spacing: 2px; margin-top: 0.5rem; }
+    .searchbox-center::placeholder { text-align: center; }
+    .searchbox-center { text-align: center; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <header class="bg-white p-4 shadow text-center">
+    <h1 class="text-5xl font-extrabold text-blue-800 tracking-tight mb-3">MediaMap</h1>
+    <p class="text-lg text-gray-600 mb-6">A Cartographic Local News Experiment</p>
+  </header>
+
+  <div id="map"></div>
+
+  <div class="flex justify-center mt-8 mb-4">
+    <input
+      id="searchBox"
+      type="text"
+      placeholder="What's happening in..."
+      class="border rounded-xl px-3 py-3 w-full max-w-md text-base searchbox-center focus:outline-none focus:ring focus:ring-blue-300"
+      autocomplete="off"
+    />
+  </div>
+
+  <div class="text-center mt-6 mb-2">
+    <span class="footer-quote block text-lg text-gray-600 mb-3">
+      “The real voyage of discovery consists not in seeking new landscapes, but in having new eyes.” – Marcel Proust
+    </span>
+    <span class="footer-meta block">BETA — © Boswell Automation 2025.</span>
+  </div>
+
+  <script>
+    const rssFeeds = [
+      "https://corsproxy.io/?https://www.bbc.co.uk/london/rss/",
+      "https://corsproxy.io/?https://feeds.bbci.co.uk/news/england/london/rss.xml",
+      "https://corsproxy.io/?https://www.mylondon.news/news/?service=rss",
+      "https://corsproxy.io/?https://www.football.london/?service=rss",
+      "https://corsproxy.io/?https://feeds.skynews.com/feeds/rss/home.xml",
+      "https://corsproxy.io/?https://www.propertyweek.com/regions/london/feed",
+      "https://corsproxy.io/?https://www.ft.com/news-feed?format=rss.&page=36",
+      "https://corsproxy.io/?https://www.standard.co.uk/rss",
+      "https://corsproxy.io/?https://www.cityam.com/feed",
+      "https://corsproxy.io/?https://www.thelondonspy.co.uk/feed",
+      "https://corsproxy.io/?https://www.londoncentric.media/feed",
+      "https://corsproxy.io/?https://insidecroydon.com/feed/",
+      "https://corsproxy.io/?https://londonminute.substack.com/feed",
+      "https://corsproxy.io/?https://www.the-londoner.co.uk/feed/",
+      "https://corsproxy.io/?https://www.hammersmithtoday.co.uk/feed",
+      "https://corsproxy.io/?https://haringeycommunitypress.co.uk/feed",
+      "https://corsproxy.io/?https://brixtonblog.com/feed/",
+      "https://corsproxy.io/?https://londonist.com/feed/",
+      "https://corsproxy.io/?https://www.yellowad.co.uk/feed/",
+      "https://corsproxy.io/?https://www.camdennewjournal.co.uk/feed/",
+      "https://corsproxy.io/?http://metro.co.uk/feed/",
+      "https://corsproxy.io/?https://southwarknews.co.uk/feed/",
+      "https://corsproxy.io/?https://thebeaverlse.co.uk/feed",
+      "https://corsproxy.io/?https://www.kentonline.co.uk/_api/rss/gravesend_messenger_news_feed.xml",
+      "https://corsproxy.io/?https://www.gazette-news.co.uk/rss/",
+      "https://corsproxy.io/?https://www.enfieldindependent.co.uk/rss/",
+      "https://corsproxy.io/?https://www.times-series.co.uk/rss",
+      "https://corsproxy.io/?https://www.yourlocalguardian.co.uk/rss/",
+      "https://corsproxy.io/?https://theguardian.com/uk/rss",
+      "https://corsproxy.io/?https://independent.co.uk/rss",
+      "https://corsproxy.io/?https://ft.com/world/uk",
+      "https://corsproxy.io/?https://rss.app/rss-feed/time-out-worldwide-rss-feed",
+      "https://corsproxy.io/?http://www.getsurrey.co.uk/news/?service=rss"
+    ];
+
+    const boroughs = {
+      "Barking and Dagenham": [51.5441, 0.1557],
+      "Barnet": [51.6252, -0.1515],
+      "Bexley": [51.452, 0.117],
+      "Brent": [51.5588, -0.2817],
+      "Bromley": [51.405, 0.0196],
+      "Camden": [51.5416, -0.1432],
+      "Croydon": [51.3762, -0.0982],
+      "Ealing": [51.5142, -0.3043],
+      "Enfield": [51.6622, -0.1181],
+      "Greenwich": [51.4821, 0.0052],
+      "Hackney": [51.545, -0.055],
+      "Hammersmith": [51.4927, -0.2339],
+      "Haringey": [51.5906, -0.1119],
+      "Harrow": [51.579, -0.3355],
+      "Havering": [51.55, 0.2167],
+      "Hillingdon": [51.5352, -0.4486],
+      "Hounslow": [51.467, -0.36],
+      "Islington": [51.538, -0.099],
+      "Kensington": [51.5009, -0.1937],
+      "Kingston": [51.4123, -0.3006],
+      "Lambeth": [51.457, -0.116],
+      "Lewisham": [51.45, -0.014],
+      "Merton": [51.4159, -0.1889],
+      "Newham": [51.525, 0.035],
+      "Redbridge": [51.5761, 0.0852],
+      "Richmond": [51.4613, -0.3037],
+      "Southwark": [51.503, -0.091],
+      "Sutton": [51.3618, -0.1945],
+      "Tower Hamlets": [51.5155, -0.0312],
+      "Waltham Forest": [51.5908, -0.0118],
+      "Wandsworth": [51.4572, -0.1701],
+      "Westminster": [51.4975, -0.1357],
+      "City of London": [51.5128, -0.0918]
+    };
+
+    const postcodeCentroids = {
+      "E8": [51.545, -0.061],
+      "E1": [51.517, -0.061],
+      "SE1": [51.502, -0.090],
+      "N1": [51.541, -0.097],
+      "W1": [51.515, -0.142],
+      "SW1": [51.497, -0.136],
+      "NW1": [51.535, -0.150],
+      "EC1": [51.522, -0.099],
+      "WC1": [51.523, -0.123],
+      "CR0": [51.376, -0.098],
+      "TW1": [51.449, -0.327]
+    };
+
+    const landmarks = {
+      "Brixton": [51.4626, -0.1149],
+      "Clapham": [51.4633, -0.1387],
+      "Streatham": [51.4274, -0.1296],
+      "Shoreditch": [51.5254, -0.0788],
+      "Dalston": [51.5455, -0.0754],
+      "Wembley": [51.5525, -0.2967],
+      "Kilburn": [51.5372, -0.1986],
+      "Peckham": [51.4706, -0.0698],
+      "Dulwich": [51.4452, -0.0764],
+      "Tottenham": [51.5886, -0.0691],
+      "Wood Green": [51.5971, -0.109],
+      "Notting Hill": [51.5096, -0.1963],
+      "Earls Court": [51.4903, -0.1936],
+      "Canary Wharf": [51.5054, -0.0235],
+      "Bethnal Green": [51.527, -0.0611],
+      "Walthamstow": [51.5852, -0.0199],
+      "Leyton": [51.5607, -0.0154],
+      "Tooting": [51.4282, -0.1675],
+      "Battersea": [51.4639, -0.1677],
+      "Romford": [51.5742, 0.1831],
+      "Ilford": [51.5588, 0.0715],
+      "Uxbridge": [51.5465, -0.4795],
+      "Hayes": [51.5085, -0.4234],
+      "Surbiton": [51.3925, -0.2983],
+      "Chessington": [51.3568, -0.3044],
+      "Deptford": [51.479, -0.0229],
+      "Catford": [51.4451, -0.0265],
+      "Wimbledon": [51.4216, -0.2065],
+      "Morden": [51.4021, -0.1947],
+      "Edgware": [51.6136, -0.2759],
+      "Finchley": [51.5994, -0.1875],
+      "Barking": [51.5391, 0.0807],
+      "Dagenham": [51.55, 0.145],
+      "Southall": [51.5114, -0.3741],
+      "Acton": [51.5087, -0.2807],
+      "Twickenham": [51.4479, -0.3275],
+      "Kew": [51.484, -0.2871],
+      "Pimlico": [51.4887, -0.1344],
+      "Mayfair": [51.509, -0.1502],
+      "Stratford": [51.5413, 0.0022],
+      "East Ham": [51.5386, 0.0545],
+      "Canning Town": [51.5146, 0.0125],
+      "Eltham": [51.4542, 0.0524],
+      "Woolwich": [51.4895, 0.0632]
+    };
+
+    function detectBorough(text) {
+      if (!text) return null;
+      const lower = text.toLowerCase();
+      const boroughNames = Object.keys(boroughs);
+      const boroughAliases = {
+        "Barking and Dagenham": ["Barking", "Dagenham"],
+        "Barnet": ["Edgware", "Finchley"],
+        "Bexley": ["Bexleyheath", "Sidcup"],
+        "Brent": ["Wembley", "Kilburn"],
+        "Bromley": ["Orpington", "Beckenham"],
+        "Camden": ["Kentish Town", "Hampstead"],
+        "Croydon": ["Purley", "Norbury"],
+        "Ealing": ["Acton", "Southall"],
+        "Enfield": ["Edmonton", "Palmers Green"],
+        "Greenwich": ["Woolwich", "Eltham"],
+        "Hackney": ["Shoreditch", "Dalston"],
+        "Hammersmith": ["Shepherd's Bush", "Fulham"],
+        "Haringey": ["Tottenham", "Wood Green"],
+        "Harrow": ["Wealdstone", "Pinner"],
+        "Havering": ["Romford", "Hornchurch"],
+        "Hillingdon": ["Uxbridge", "Hayes"],
+        "Hounslow": ["Chiswick", "Feltham"],
+        "Islington": ["Angel", "Highbury"],
+        "Kensington": ["Notting Hill", "Earls Court"],
+        "Kingston": ["Surbiton", "Chessington"],
+        "Lambeth": ["Brixton", "Clapham", "Streatham"],
+        "Lewisham": ["Deptford", "Catford"],
+        "Merton": ["Wimbledon", "Morden"],
+        "Newham": ["Stratford", "East Ham", "Canning Town"],
+        "Redbridge": ["Ilford", "Gants Hill"],
+        "Richmond": ["Twickenham", "Kew"],
+        "Southwark": ["Peckham", "Dulwich"],
+        "Sutton": ["Carshalton", "Cheam"],
+        "Tower Hamlets": ["Bethnal Green", "Canary Wharf"],
+        "Waltham Forest": ["Walthamstow", "Leyton"],
+        "Wandsworth": ["Tooting", "Battersea"],
+        "Westminster": ["Pimlico", "Mayfair"],
+        "City of London": ["Bank", "Barbican"]
+      };
+
+      for (const borough of boroughNames) {
+        if (lower.includes(borough.toLowerCase())) return borough;
+        const aliases = boroughAliases[borough] || [];
+        for (const alias of aliases) {
+          if (lower.includes(alias.toLowerCase())) return borough;
+        }
+      }
+      return null;
+    }
+
+    function detectLocation(text) {
+      const lower = text.toLowerCase();
+      for (const name in landmarks) {
+        if (lower.includes(name.toLowerCase())) {
+          return landmarks[name];
+        }
+      }
+      const borough = detectBorough(text);
+      if (borough) return boroughs[borough];
+      return null;
+    }
+
+    const greenIcon = new L.Icon({
+      iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+    const blueIcon = new L.Icon({
+      iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    const map = L.map('map').setView([51.5074, -0.1278], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    function parseDate(pubDate) {
+      let d = Date.parse(pubDate);
+      if (!isNaN(d)) return new Date(d);
+      return null;
+    }
+
+    function isWithinDays(date, days) {
+      if (!date) return false;
+      const now = new Date();
+      const diffMs = now - date;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      return diffDays <= days;
+    }
+
+    let allNewsMarkers = [];
+
+    async function fetchFeed(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const parser = new DOMParser();
+      return parser.parseFromString(text, "text/xml");
+    }
+
+    function extractItems(xml) {
+      const items = [...xml.querySelectorAll("item")];
+      return items.map(item => ({
+        title: item.querySelector("title")?.textContent,
+        link: item.querySelector("link")?.textContent,
+        desc: item.querySelector("description")?.textContent,
+        pubDate: item.querySelector("pubDate")?.textContent
+      }));
+    }
+
+    async function loadAndMap() {
+      for (const feed of rssFeeds) {
+        try {
+          const xml = await fetchFeed(feed);
+          const articles = extractItems(xml);
+          for (const article of articles) {
+            const pubDate = parseDate(article.pubDate);
+            if (!isWithinDays(pubDate, 7)) continue;
+            const boro = detectBorough(article.title + " " + article.desc);
+            if (boro) {
+              const loc = detectLocation(article.title + ' ' + article.desc);
+              if (!loc) continue;
+              const offset = [
+                loc[0] + (Math.random() - 0.5) * 0.002,
+                loc[1] + (Math.random() - 0.5) * 0.002
+              ];
+              let markerIcon = blueIcon;
+              if (isWithinDays(pubDate, 1)) markerIcon = greenIcon;
+              const marker = L.marker(offset, { icon: markerIcon }).addTo(map);
+              marker.bindPopup(
+                `<strong>${article.title}</strong><br>
+                <span class="text-xs text-gray-500">${article.pubDate ? new Date(pubDate).toLocaleString() : ""}</span><br>
+                <a href='${article.link}' target='_blank'>Read more</a>`
+              );
+              allNewsMarkers.push({
+                marker,
+                article,
+                boro,
+                latlng: offset
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("Feed failed:", feed);
+        }
+      }
+    }
+
+    function getDistanceKm(a, b) {
+      const toRad = x => x * Math.PI / 180;
+      const R = 6371;
+      const dLat = toRad(b[0] - a[0]);
+      const dLon = toRad(b[1] - a[1]);
+      const lat1 = toRad(a[0]);
+      const lat2 = toRad(b[0]);
+      const x = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) *
+        Math.sin(dLon / 2) ** 2;
+      const y = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+      return R * y;
+    }
+
+    function getCoordsForInput(query) {
+      const q = query.trim().toUpperCase();
+      if (postcodeCentroids[q]) return postcodeCentroids[q];
+      for (const name in boroughs) {
+        if (q === name.toUpperCase() || name.toUpperCase().includes(q)) {
+          return boroughs[name];
+        }
+      }
+      for (const name in landmarks) {
+        if (q === name.toUpperCase() || name.toUpperCase().includes(q)) {
+          return landmarks[name];
+        }
+      }
+      for (const code in postcodeCentroids) {
+        if (q.startsWith(code)) return postcodeCentroids[code];
+      }
+      return null;
+    }
+
+    function filterMarkers(query) {
+      query = query.trim();
+      if (!query) {
+        for (const { marker } of allNewsMarkers) {
+          if (!map.hasLayer(marker)) marker.addTo(map);
+        }
+        map.setView([51.5074, -0.1278], 10);
+        return;
+      }
+      const centre = getCoordsForInput(query);
+      if (!centre) {
+        for (const { marker, article, boro } of allNewsMarkers) {
+          let match = (
+            (article.title && article.title.toLowerCase().includes(query.toLowerCase())) ||
+            (article.desc && article.desc.toLowerCase().includes(query.toLowerCase())) ||
+            (boro && boro.toLowerCase().includes(query.toLowerCase()))
+          );
+          if (match) {
+            if (!map.hasLayer(marker)) marker.addTo(map);
+          } else {
+            if (map.hasLayer(marker)) marker.remove();
+          }
+        }
+        return;
+      }
+      for (const { marker, latlng } of allNewsMarkers) {
+        let d = getDistanceKm(latlng, centre);
+        if (d <= 2.5) {
+          if (!map.hasLayer(marker)) marker.addTo(map);
+        } else {
+          if (map.hasLayer(marker)) marker.remove();
+        }
+      }
+      map.setView(centre, 13);
+    }
+
+    function debounce(fn, delay) {
+      let timer = null;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadAndMap();
+      const searchBox = document.getElementById('searchBox');
+      if (searchBox) {
+        searchBox.addEventListener('input', debounce(e => {
+          filterMarkers(e.target.value);
+        }, 150));
+      }
+    });
+  </script>
+</body>
+</html>
