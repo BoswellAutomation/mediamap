@@ -21,6 +21,15 @@
     <p class="text-lg text-gray-600 mb-6">A Cartographic Local News Experiment</p>
   </header>
 
+  <!-- AI Daily Summary Card -->
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-blue-50 rounded-xl shadow p-6 mb-4 mt-4">
+      <h2 class="text-2xl font-semibold text-blue-700 mb-2">London Today</h2>
+      <div id="daily-summary" class="text-lg text-gray-800"></div>
+      <div id="summary-updated" class="text-sm text-gray-400 mt-2"></div>
+    </div>
+  </div>
+
   <div id="map"></div>
 
   <div class="flex justify-center mt-8 mb-4">
@@ -414,6 +423,19 @@
           filterMarkers(e.target.value);
         }, 150));
       }
+
+      // Fetch and display daily summary
+      fetch('https://raw.githubusercontent.com/BoswellAutomation/mediamap/main/summaries/daily-summary.json')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('daily-summary').textContent = data.summary || "No summary available.";
+          if (data.updated) {
+            document.getElementById('summary-updated').textContent = "Last updated: " + data.updated;
+          }
+        })
+        .catch(() => {
+          document.getElementById('daily-summary').textContent = "Could not load daily summary.";
+        });
     });
   </script>
 </body>
